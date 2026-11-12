@@ -1,0 +1,16 @@
+{
+  "name": "拼讀大冒險 Phonics Adventure",
+  "short_name": "拼讀大冒險",
+  "description": "台灣小朋友的英文自然發音闖關學習",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#dbeafe",
+  "theme_color": "#3b82f6",
+  "lang": "zh-Hant",
+  "icons": [
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
