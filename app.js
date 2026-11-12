@@ -213,7 +213,10 @@ const Speech = {
   }
 };
 if ('speechSynthesis' in window) { Speech.load(); speechSynthesis.onvoiceschanged = () => Speech.load(); }
-const spokenText = wd => wd.unit.id === 'letters' ? `${wd.w[0].toUpperCase()}|${wd.w}` : wd.w;
+// 字母名稱用拼音寫出來，避免語音把大寫字母讀成 "capital A"
+const LETTER_SAY = { a: 'ay', b: 'bee', c: 'see', d: 'dee', e: 'ee', f: 'eff', g: 'gee', h: 'aitch', i: 'eye', j: 'jay', k: 'kay', l: 'el', m: 'em', n: 'en', o: 'oh', p: 'pee', q: 'cue', r: 'are', s: 'ess', t: 'tee', u: 'you', v: 'vee', w: 'double you', x: 'ex', y: 'why', z: 'zee' };
+const letterWord = w => `${LETTER_SAY[w[0].toLowerCase()] || w[0]}|${w}`;
+const spokenText = wd => wd.unit.id === 'letters' ? letterWord(wd.w) : wd.w;
 
 /* ---------------------------- 錄音 ---------------------------- */
 const Rec = {
@@ -475,7 +478,7 @@ function answerQ(v) {
   Q.log.push({ w: q.w, ok, unit: q.unit });
   record(q, ok); beep(ok); save();
   render();
-  Speech.say(q.letters ? `${q.w[0].toUpperCase()}|${q.w}` : q.w);
+  Speech.say(q.letters ? letterWord(q.w) : q.w);
 }
 function nextQ() {
   Q.i++; Q.answered = false;
@@ -724,7 +727,7 @@ function render() {
   const v = ui.view;
   const html = v === 'home' ? viewHome() : v === 'unit' ? viewUnit() : v === 'quiz' ? viewQuiz() : v === 'result' ? viewResult() : v === 'ach' ? viewAch() : v === 'parent' ? viewParent() : '';
   $('#app').innerHTML = html;
-  if (v === 'quiz' && ui.speakQ) { ui.speakQ = false; const q = Q.qs[Q.i]; Speech.say(q.letters ? `${q.w[0].toUpperCase()}|${q.w}` : q.w); }
+  if (v === 'quiz' && ui.speakQ) { ui.speakQ = false; const q = Q.qs[Q.i]; Speech.say(q.letters ? letterWord(q.w) : q.w); }
 }
 function openUnit(i, tab) {
   if (!isUnlocked(i)) { toast(`🔒 先通過上一關（至少 ${S.settings.pass} 顆星）`); return; }
@@ -804,7 +807,7 @@ function onAct(act, el) {
     case 'placement': return startQuiz('placement');
     case 'skipplace': S.placement = { date: today(), start: 0, skipped: true }; save(); return render();
     case 'quitquiz': if (confirm('要離開測驗嗎？這次的成績不會計算。')) { Q = null; return go('home'); } return;
-    case 'qplay': { const q = Q.qs[Q.i]; return void Speech.say(q.letters ? `${q.w[0].toUpperCase()}|${q.w}` : q.w); }
+    case 'qplay': { const q = Q.qs[Q.i]; return void Speech.say(q.letters ? letterWord(q.w) : q.w); }
     case 'qslow': return void Speech.say(Q.qs[Q.i].w, { slow: true });
     case 'qans': return answerQ(d.v);
     case 'spellgo': { const v = val('spellin'); if (!v.trim()) return toast('先把答案拼出來喔'); return answerQ(v); }
