@@ -41,7 +41,7 @@ function defaultState() {
     v: 1, name: '小朋友', created: today(), placement: null,
     units: {}, history: [], wrong: {}, learned: {}, days: [], time: {},
     achv: {}, goals: [], recCount: 0, gameCount: 0, reviewFixed: 0,
-    settings: { pass: 3, rate: 0.85, voice: '' }
+    settings: { pass: 3, rate: 0.7, voice: '' }
   };
 }
 function loadState() {
@@ -49,7 +49,9 @@ function loadState() {
     const s = JSON.parse(localStorage.getItem(KEY));
     if (s && s.v) {
       const d = defaultState();
-      return Object.assign(d, s, { settings: Object.assign(d.settings, s.settings || {}) });
+      const st = Object.assign(d, s, { settings: Object.assign(d.settings, s.settings || {}) });
+      if (st.settings.rate === 0.85) st.settings.rate = 0.7; // 舊版預設語速太快
+      return st;
     }
   } catch (e) { /* ignore */ }
   return defaultState();
@@ -180,7 +182,19 @@ const Speech = {
     }
     return v;
   },
-  say(text, opts = {}) {
+  token: 0,
+  PAUSE: 1000, // 字母與單字之間的停頓（毫秒）
+  // 文字中用 | 分段，段與段之間會停頓，例如 'A|apple' → 「A」停一下再「apple」
+  async say(text, opts = {}) {
+    const parts = String(text).split('|');
+    const my = ++this.token;
+    for (let i = 0; i < parts.length; i++) {
+      if (my !== this.token) return;
+      await this.speak(parts[i], opts);
+      if (i < parts.length - 1) await new Promise(r => setTimeout(r, this.PAUSE));
+    }
+  },
+  speak(text, opts = {}) {
     return new Promise(res => {
       if (!('speechSynthesis' in window)) { toast('這個瀏覽器不支援語音功能'); return res(); }
       try {
@@ -188,7 +202,7 @@ const Speech = {
         const u = new SpeechSynthesisUtterance(text);
         u.lang = 'en-US';
         const v = this.pick(); if (v) u.voice = v;
-        u.rate = opts.slow ? 0.55 : S.settings.rate;
+        u.rate = opts.slow ? 0.5 : S.settings.rate;
         let done = false;
         const fin = () => { if (!done) { done = true; res(); } };
         u.onend = fin; u.onerror = fin;
@@ -199,7 +213,7 @@ const Speech = {
   }
 };
 if ('speechSynthesis' in window) { Speech.load(); speechSynthesis.onvoiceschanged = () => Speech.load(); }
-const spokenText = wd => wd.unit.id === 'letters' ? `${wd.w[0].toUpperCase()}. ${wd.w}.` : wd.w;
+const spokenText = wd => wd.unit.id === 'letters' ? `${wd.w[0].toUpperCase()}|${wd.w}` : wd.w;
 
 /* ---------------------------- 錄音 ---------------------------- */
 const Rec = {
@@ -265,7 +279,7 @@ function go(view, o = {}) {
   window.scrollTo(0, 0);
 }
 function stopAll() {
-  ui.playing = false;
+  ui.playing = false; Speech.token++;
   try { if ('speechSynthesis' in window) speechSynthesis.cancel(); } catch (e) { /* ignore */ }
   if (ui.say.recording) { try { Rec.stop(); } catch (e) { /* ignore */ } ui.say.recording = false; }
 }
@@ -461,7 +475,7 @@ function answerQ(v) {
   Q.log.push({ w: q.w, ok, unit: q.unit });
   record(q, ok); beep(ok); save();
   render();
-  Speech.say(q.letters ? `${q.w[0].toUpperCase()}. ${q.w}.` : q.w);
+  Speech.say(q.letters ? `${q.w[0].toUpperCase()}|${q.w}` : q.w);
 }
 function nextQ() {
   Q.i++; Q.answered = false;
@@ -710,7 +724,7 @@ function render() {
   const v = ui.view;
   const html = v === 'home' ? viewHome() : v === 'unit' ? viewUnit() : v === 'quiz' ? viewQuiz() : v === 'result' ? viewResult() : v === 'ach' ? viewAch() : v === 'parent' ? viewParent() : '';
   $('#app').innerHTML = html;
-  if (v === 'quiz' && ui.speakQ) { ui.speakQ = false; const q = Q.qs[Q.i]; Speech.say(q.letters ? `${q.w[0].toUpperCase()}. ${q.w}.` : q.w); }
+  if (v === 'quiz' && ui.speakQ) { ui.speakQ = false; const q = Q.qs[Q.i]; Speech.say(q.letters ? `${q.w[0].toUpperCase()}|${q.w}` : q.w); }
 }
 function openUnit(i, tab) {
   if (!isUnlocked(i)) { toast(`🔒 先通過上一關（至少 ${S.settings.pass} 顆星）`); return; }
@@ -790,7 +804,7 @@ function onAct(act, el) {
     case 'placement': return startQuiz('placement');
     case 'skipplace': S.placement = { date: today(), start: 0, skipped: true }; save(); return render();
     case 'quitquiz': if (confirm('要離開測驗嗎？這次的成績不會計算。')) { Q = null; return go('home'); } return;
-    case 'qplay': { const q = Q.qs[Q.i]; return void Speech.say(q.letters ? `${q.w[0].toUpperCase()}. ${q.w}.` : q.w); }
+    case 'qplay': { const q = Q.qs[Q.i]; return void Speech.say(q.letters ? `${q.w[0].toUpperCase()}|${q.w}` : q.w); }
     case 'qslow': return void Speech.say(Q.qs[Q.i].w, { slow: true });
     case 'qans': return answerQ(d.v);
     case 'spellgo': { const v = val('spellin'); if (!v.trim()) return toast('先把答案拼出來喔'); return answerQ(v); }
